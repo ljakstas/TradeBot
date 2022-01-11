@@ -15,6 +15,9 @@ HEADERS = {'APCA-API-KEY-ID': APCA_API_KEY_ID, 'APCA-API-SECRET-KEY': APCA_API_S
 
 api = tradeapi.REST(api_version='v2')
 
+#class Candle:
+
+
 def get_account():
     r = requests.get(ACCOUNT_URL, headers = HEADERS)
 
@@ -38,15 +41,12 @@ def get_orders():
 
     return json.loads(r.content)
 
-#response = create_order("AAPL", 100, "buy", "market", "gtc")
-#response = create_order("DRN", 1, "buy", "market", "gtc")
-
 orders = get_orders()
 #print(orders)
 
-def get_candles(symbol):
+def get_candles(symbol, limit_days):
     # Get daily price data for AAPL over the last 5 trading days.
-    barset = api.get_barset(symbol, 'day', limit=5)
+    barset = api.get_barset(symbol, 'day', limit=limit_days)
     candle_data = barset[symbol]
 
     df = barset.df
@@ -60,17 +60,15 @@ def get_candles(symbol):
 
     #print("max close is $%s on %s" % (high_close_val, max_close_day))
     
-    return candle_data
+    return candle_data['AAPL']
 
 def get_close_candles(symbol, days):
     # Get daily price data for AAPL over the last 5 trading days.
     barset = api.get_barset(symbol, 'day', limit=days)
-    candle_data = barset[symbol]
 
     df = barset.df
 
     newDF =df[("AAPL","close")]
-
     col_one_list = newDF.tolist()
     
     return col_one_list
@@ -78,29 +76,33 @@ def get_close_candles(symbol, days):
 def moving_average(bars, length):
     sum = 0
     for i in range(length):
-        sum += bars[i]
-    return sum / length
+        sum += bars[i].c
+    return float("{:.2f}".format(sum / length))
 
-MOVING_TEN_AVG = []
-MOVING_FIFTY_AVG = []
-for i in range(50):
-    bars_ten = get_close_candles('AAPL', 50-i)
-    n = float("{:.2f}".format(moving_average(bars_ten, 10)))
-    MOVING_TEN_AVG.append(n)
 
-for i in range(50):
-    bars_fifty = get_close_candles('AAPL', 100-i)
-    n = float("{:.2f}".format(moving_average(bars_fifty, 50)))
-    MOVING_FIFTY_AVG.append(n)
+def get_moving_avg_arr(symbol, numDayAvg, arrLength):
+    MOVING_AVG_ARR = []
+    for i in range(arrLength): #desired len
+        barset = api.get_barset(symbol, 'day', limit=(arrLength + numDayAvg)-(i+1)) #arrlen+moving day avg - (i+1)
+        bb = barset[symbol]
+        n = moving_average(bb, numDayAvg) #moving day avg
+        MOVING_AVG_ARR.append(n)
     
+    return MOVING_AVG_ARR
+
+
+
+avg10arr = get_moving_avg_arr('AAPL', 10, 50)
+print(avg10arr[-1])
+
+
+#bars = get_close_candles('AAPL',50)
+#newDF =df[("AAPL","close")]
+#print(bars)
+#arr50 = get_moving_avg_arr(50, 100)
+#arr10 = get_moving_avg_arr(10, 100)
 #for i in range(50):
-#    abs(MOVING_TEN_AVG[i] - MOVING_FIFTY_AVG[i])
+#    print(float("{:.2f}".format(arr50[i]-arr10[i])))
 
-bars_ten = get_close_candles('AAPL', 10)
-ten_day_avg = moving_average(bars_ten, len(bars_ten))
-
-bars_fifty = get_close_candles('AAPL', 50)
-fifty_day_avg = moving_average(bars_fifty, len(bars_fifty))
-
-print(ten_day_avg)
-#print(fifty_day_avg)
+#response = create_order("AAPL", 100, "buy", "market", "gtc")
+#response = create_order("DRN", 1, "buy", "market", "gtc")
