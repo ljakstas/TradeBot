@@ -5,6 +5,7 @@ import alpaca_trade_api as tradeapi
 import pandas as pd
 from datetime import datetime
 from pytz import timezone
+import os
 
 
 APCA_API_BASE_URL= "https://paper-api.alpaca.markets"
@@ -119,19 +120,16 @@ def decide_todays_candles(symbol, array_length):
     return bb
 
 
-def daddy_decider(symbol, dayAvg_a, dayAvg_b): #b > a
+def daddy_decider(symbol, dayAvg_a, dayAvg_b, riskRatio): #b > a
     crossed_to_neg = False #move outside for thread???
     crossed_to_pos = False
-
-
-
     
     todays_bars = api.get_barset('AAPL', 'day', limit=100)['AAPL']
     curr_day_close = todays_bars[-1].c
 
     todays_bars = api.get_barset('AAPL', 'day', limit=5)['AAPL']
     curr_day_close = todays_bars[-1].c
-    todays_min_bars = api.get_barset('AAPL', 'day', limit=5)['AAPL']
+    todays_min_bars = api.get_barset('AAPL', '5Min', limit=5)['AAPL']
     curr_min_close = todays_min_bars[-1].c
 
     avg_arr_a = get_moving_avg_arr(symbol, dayAvg_a, dayAvg_b, 'day')
@@ -142,7 +140,9 @@ def daddy_decider(symbol, dayAvg_a, dayAvg_b): #b > a
     close_out_negative = 0
     open_into_positive = 0
     close_out_positive = 0
-    if crossed_to_neg == False and crossed_to_pos == False: #current state
+    dippedBuys = []  #hold outside for thread?
+
+    if crossed_to_neg == False and crossed_to_pos == False: #get current/intro state
         if diff < 0:
             crossed_to_neg =True
         elif diff > 0:
@@ -152,6 +152,7 @@ def daddy_decider(symbol, dayAvg_a, dayAvg_b): #b > a
         else:
             crossed_to_neg = True
     
+    #Change in state - negative -> positive
     if crossed_to_neg==True and diff>=0: 
         crossed_to_neg = False
         crossed_to_pos = True
@@ -169,10 +170,12 @@ def daddy_decider(symbol, dayAvg_a, dayAvg_b): #b > a
         crossed_to_pos = False
         open_into_negative = curr_day_close #use more percise,15min???!!
         close_out_positive = open_into_negative
+        dippedBuys.clear()
 
         percent_change = ((open_into_positive - close_out_positive) / open_into_positive) * 100
         if percent_change > 5:
-            #SELL ORDER!!
+            #check close price relative to begin of cycle
+
             return "SELL"
 
         #??put option??!!
@@ -182,15 +185,23 @@ def daddy_decider(symbol, dayAvg_a, dayAvg_b): #b > a
 
     if crossed_to_neg==True and diff<0:#continued? dipping -> buying point
         #bell curve for buying in
+        #percentBuy = riskRatio * diff
+        #sharesToBuy = float("{:.2f}".format((currPortfolio * percentBuy) / curr_day_close)
+        #response = create_order("AAPL", sharesToBuy, "buy", "market", "gtc")
+        dippedBuys.append(curr_min_close)
+
+
         #open_into_negative
         #curr_day_close #use more percise,15min???
         percent_change = ((open_into_negative - curr_day_close) / open_into_negative) * 100
-        #array of under curve closed? - bell curve for investing?!
+        #array of under curve closed? - bell curve for investing?!`
 
         return 1
     
     if crossed_to_pos==True and diff>0:#continued? rising ->  point
         #check curr 15min for future cross
+
+        
         return 1
     
 
